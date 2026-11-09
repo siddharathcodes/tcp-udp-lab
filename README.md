@@ -1,4 +1,8 @@
-# TCP vs UDP Reliability Lab (Computer Networks, Week 10)
+# TCP vs UDP Reliability Lab
+
+**[▶ Open the live demo](https://tcp-udp-lab.onrender.com)**
+
+The first load can take up to a minute, because the free server sleeps when idle.
 
 Tests how TCP and UDP behave under packet loss, ACK loss, delay, duplication and reordering.
 
