@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: tcp-udp-reliability-lab
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health

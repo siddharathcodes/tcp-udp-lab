@@ -1,0 +1,232 @@
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<div class="wrap">
+<header class="top">
+  <div class="brand">
+    <h1>TCP vs UDP Reliability Lab</h1>
+    <small>Computer Networks, Week 10. Break the network on purpose and watch what each protocol does.</small>
+  </div>
+  <div class="row">
+    <span class="vs"><i class="dot" style="background:var(--tcp)"></i>TCP</span>
+    <span class="vs"><i class="dot" style="background:var(--udp)"></i>UDP</span>
+    <button id="themeBtn" class="pill" aria-label="Switch colour theme">Theme: auto</button>
+  </div>
+</header>
+<nav class="tabs" id="tabs" aria-label="Sections">
+  <a href="#scenarios">Scenarios</a><a href="#experiment">Experiments</a><a href="#rtt">RTT &amp; timeout</a><a href="#headers">Headers &amp; checksum</a><a href="#live">Live socket lab</a><a href="#guide">Project guide</a>
+</nav>
+<main>
+
+<!-- SCENARIOS -->
+<section id="v-scenarios" hidden>
+  <div class="panel" style="display:flex;flex-direction:column;gap:14px">
+    <div>
+      <h2>Failure scenarios, side by side</h2>
+      <p class="lede" style="margin-top:4px">Same traffic, same network fault, two protocols. Pick a scenario and press play. Red crosses are packets the network dropped.</p>
+    </div>
+    <div class="row" id="scChips" role="group" aria-label="Scenario"></div>
+    <div class="callout" id="scNote"></div>
+    <div class="row" style="gap:16px">
+      <button class="primary" id="playBtn">Play</button>
+      <button id="restartBtn">Restart</button>
+      <label class="f" style="flex:1;min-width:200px"><span class="lh"><span>Time</span><span class="v" id="tVal">0 ms</span></span><input type="range" id="tSlider" min="0" max="1000" value="0" step="1" aria-label="Playhead"></label>
+      <div class="row" id="speedBtns" role="group" aria-label="Speed" style="gap:6px"></div>
+    </div>
+    <div class="row" style="gap:20px">
+      <label class="check"><input type="checkbox" id="optFast" checked>Fast retransmit (3 duplicate ACKs)</label>
+      <label class="check"><input type="checkbox" id="optDelack">Delayed ACK (500 ms)</label>
+    </div>
+    <div class="controls" id="customCtl" hidden>
+      <label class="f"><span class="lh"><span>Segments</span><span class="v" id="cN"></span></span><input type="range" id="c_n" min="2" max="12" value="6"></label>
+      <label class="f"><span class="lh"><span>Data loss</span><span class="v" id="cL"></span></span><input type="range" id="c_loss" min="0" max="50" value="20"></label>
+      <label class="f"><span class="lh"><span>ACK loss</span><span class="v" id="cA"></span></span><input type="range" id="c_aloss" min="0" max="50" value="10"></label>
+      <label class="f"><span class="lh"><span>Duplication</span><span class="v" id="cD"></span></span><input type="range" id="c_dup" min="0" max="50" value="0"></label>
+      <label class="f"><span class="lh"><span>Reordering</span><span class="v" id="cR"></span></span><input type="range" id="c_reo" min="0" max="50" value="10"></label>
+      <label class="f"><span class="lh"><span>Random seed</span><span class="v" id="cS"></span></span><input type="range" id="c_seed" min="1" max="99" value="7"></label>
+    </div>
+  </div>
+  <div class="grid2" style="margin-top:16px">
+    <div class="panel" style="display:flex;flex-direction:column;gap:12px">
+      <div class="row" style="justify-content:space-between"><h2 class="tcp-c">TCP</h2><span class="chip tcp">reliable, ordered byte stream</span></div>
+      <div class="row" id="tcpChips"></div>
+      <svg id="svgTcp" class="diagram" role="img" aria-label="TCP sequence diagram"></svg>
+      <div class="logbox" id="logTcp"></div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column;gap:12px">
+      <div class="row" style="justify-content:space-between"><h2 class="udp-c">UDP</h2><span class="chip udp">best effort datagrams</span></div>
+      <div class="row" id="udpChips"></div>
+      <svg id="svgUdp" class="diagram" role="img" aria-label="UDP sequence diagram"></svg>
+      <div class="logbox" id="logUdp"></div>
+    </div>
+  </div>
+</section>
+
+<!-- EXPERIMENT -->
+<section id="v-experiment" hidden>
+  <div class="panel" style="display:flex;flex-direction:column;gap:14px">
+    <div>
+      <h2>Loss sweep experiment</h2>
+      <p class="lede" style="margin-top:4px">Sends a message stream through a bad network many times at each loss rate and averages the outcome. Every trial uses a different random seed. Results are reproducible.</p>
+    </div>
+    <div class="controls">
+      <label class="f"><span class="lh"><span>Segments per trial</span><span class="v" id="eNv"></span></span><input type="range" id="e_n" min="20" max="200" step="10" value="100"></label>
+      <label class="f"><span class="lh"><span>Trials per loss rate</span><span class="v" id="eTv"></span></span><input type="range" id="e_t" min="20" max="300" step="10" value="100"></label>
+      <label class="f"><span class="lh"><span>One-way delay</span><span class="v" id="eDv"></span></span><input type="range" id="e_d" min="5" max="150" step="5" value="25"></label>
+      <label class="f"><span class="lh"><span>Jitter</span><span class="v" id="eJv"></span></span><input type="range" id="e_j" min="0" max="60" step="1" value="5"></label>
+      <label class="f"><span class="lh"><span>Duplication</span><span class="v" id="eUv"></span></span><input type="range" id="e_u" min="0" max="30" value="2"></label>
+      <label class="f"><span class="lh"><span>Reordering</span><span class="v" id="eRv"></span></span><input type="range" id="e_r" min="0" max="40" value="5"></label>
+      <label class="f"><span class="lh"><span>TCP window</span><span class="v" id="eWv"></span></span><input type="range" id="e_w" min="1" max="32" value="10"></label>
+      <label class="f" style="grid-column:span 2">Loss rates (%)<input type="text" id="e_loss" value="0, 1, 2, 5, 10, 15, 20, 30"></label>
+    </div>
+    <div class="row">
+      <label class="check"><input type="checkbox" id="e_ack" checked>Apply the same loss to ACKs</label>
+      <label class="check"><input type="checkbox" id="e_fr" checked>TCP fast retransmit</label>
+      <button class="primary" id="runExp">Run experiment</button>
+      <span class="muted" id="expStatus"></span>
+    </div>
+  </div>
+  <div class="panel" id="expFindings" hidden></div>
+  <div class="grid2" id="expCharts" hidden style="margin-top:0">
+    <div class="panel"><h3>Data delivered to the application</h3><p class="muted" style="font-size:13px;margin-bottom:8px">Percent of the stream that reached the receiving app</p><div class="chartbox"><canvas id="ch1" role="img" aria-label="Delivery percent versus loss"></canvas></div></div>
+    <div class="panel"><h3>Time to finish the transfer</h3><p class="muted" style="font-size:13px;margin-bottom:8px">Milliseconds until the last piece arrived</p><div class="chartbox"><canvas id="ch2" role="img" aria-label="Completion time versus loss"></canvas></div></div>
+    <div class="panel"><h3>What TCP spends to stay reliable</h3><p class="muted" style="font-size:13px;margin-bottom:8px">Retransmissions per 100 segments</p><div class="chartbox"><canvas id="ch3" role="img" aria-label="TCP retransmissions versus loss"></canvas></div></div>
+    <div class="panel"><h3>What the app has to cope with</h3><p class="muted" style="font-size:13px;margin-bottom:8px">Duplicate or out-of-order datagrams delivered, per 100 sent</p><div class="chartbox"><canvas id="ch4" role="img" aria-label="Out of order and duplicate deliveries versus loss"></canvas></div></div>
+  </div>
+  <div class="panel" id="expTableBox" hidden>
+    <div class="codehead"><h3>All numbers</h3><button id="copyCsv">Copy as CSV</button></div>
+    <div class="scroll-x"><table id="expTable"></table></div>
+  </div>
+</section>
+
+<!-- RTT -->
+<section id="v-rtt" hidden>
+  <div class="panel" style="display:flex;flex-direction:column;gap:14px">
+    <div>
+      <h2>RTT estimation and the timeout interval</h2>
+      <p class="lede" style="margin-top:4px">TCP must set its retransmission timer longer than the RTT, but RTT keeps changing. It smooths samples with a moving average and adds a safety margin.</p>
+    </div>
+    <div class="row mono" style="font-size:13px;gap:8px 24px">
+      <span>EstimatedRTT = (1−α)·EstimatedRTT + α·SampleRTT</span>
+      <span>DevRTT = (1−β)·DevRTT + β·|SampleRTT − EstimatedRTT|</span>
+      <span>TimeoutInterval = EstimatedRTT + 4·DevRTT</span>
+    </div>
+    <div class="controls">
+      <label class="f"><span class="lh"><span>α (weight of newest sample)</span><span class="v" id="aV"></span></span><input type="range" id="r_a" min="0.02" max="0.9" step="0.005" value="0.125"></label>
+      <label class="f"><span class="lh"><span>β (weight for deviation)</span><span class="v" id="bV"></span></span><input type="range" id="r_b" min="0.02" max="0.9" step="0.005" value="0.25"></label>
+      <label class="f"><span class="lh"><span>Base RTT (ms)</span><span class="v" id="rbV"></span></span><input type="range" id="r_base" min="20" max="400" value="120"></label>
+      <label class="f"><span class="lh"><span>Spike chance</span><span class="v" id="rsV"></span></span><input type="range" id="r_spike" min="0" max="40" value="12"></label>
+    </div>
+    <label class="f">SampleRTT values in ms (comma separated, edit freely)<textarea id="r_samples" rows="2"></textarea></label>
+    <div class="row"><button id="rGen">Generate random samples</button><span class="chip" id="rChip"></span></div>
+    <div class="chartbox tall"><canvas id="chR" role="img" aria-label="SampleRTT, EstimatedRTT and TimeoutInterval over time"></canvas></div>
+    <details><summary>Show the table</summary><div class="scroll-x" style="margin-top:10px"><table id="rTable"></table></div></details>
+  </div>
+  <div class="grid2" style="margin-top:16px">
+    <div class="callout"><b>Timeout too short.</b> A spike above the timer triggers a premature timeout and a useless retransmission. The red markers show where that would happen.</div>
+    <div class="callout udp"><b>Timeout too long.</b> A lost segment sits unrepeated for the whole interval, so the transfer reacts slowly to real loss. Karn's rule: samples from retransmitted segments are ignored.</div>
+  </div>
+</section>
+
+<!-- HEADERS -->
+<section id="v-headers" hidden>
+  <div class="panel" style="display:flex;flex-direction:column;gap:14px">
+    <div class="row" style="justify-content:space-between">
+      <div><h2>Segment headers</h2><p class="lede" style="margin-top:4px">Tap a field. Shaded fields are the ones reliability depends on.</p></div>
+      <div class="row" role="group" aria-label="Protocol"><button class="pill" id="hTcp" aria-pressed="true">TCP header</button><button class="pill" id="hUdp" aria-pressed="false">UDP header</button></div>
+    </div>
+    <div><div class="bitscale" id="bitscale"></div><div class="hdr" id="hdrGrid"></div></div>
+    <div class="callout" id="fieldInfo"></div>
+  </div>
+  <div class="panel" style="display:flex;flex-direction:column;gap:14px;margin-top:16px">
+    <div><h2>Checksum calculator</h2><p class="lede" style="margin-top:4px">The Internet checksum: add all 16-bit words, fold the carry back in, flip every bit. The receiver adds everything including the checksum and expects 0xFFFF.</p></div>
+    <div class="controls">
+      <label class="f">Protocol<select id="k_proto"><option value="udp">UDP</option><option value="tcp">TCP</option></select></label>
+      <label class="f">Source IP<input type="text" id="k_sip" value="192.168.0.10"></label>
+      <label class="f">Destination IP<input type="text" id="k_dip" value="192.168.0.20"></label>
+      <label class="f">Source port<input type="number" id="k_sp" value="50000" min="0" max="65535"></label>
+      <label class="f">Destination port<input type="number" id="k_dp" value="12000" min="0" max="65535"></label>
+      <label class="f">Payload text<input type="text" id="k_data" value="Hello, Sejong!"></label>
+    </div>
+    <div class="grid4" id="k_stats"></div>
+    <div class="row"><button id="k_flip" class="primary">Flip one bit in transit</button><button id="k_reset">Reset</button><span id="k_verdict" class="verdict"></span></div>
+    <div class="scroll-x"><table id="k_table"></table></div>
+  </div>
+</section>
+
+<!-- LIVE -->
+<section id="v-live" hidden>
+  <div class="panel" style="display:flex;flex-direction:column;gap:14px">
+    <div class="row" style="justify-content:space-between">
+      <div><h2>Live socket lab</h2><p class="lede" style="margin-top:4px">Real Python sockets on loopback. A UDP proxy drops, duplicates, delays and reorders datagrams. Three tests run on the same workload: UDP echo, kernel TCP echo, and TCP-style reliability built on UDP.</p></div>
+      <span class="chip" id="liveBadge">checking server</span>
+    </div>
+    <div class="callout" id="liveNote"></div>
+    <div class="controls">
+      <label class="f"><span class="lh"><span>Messages</span><span class="v" id="lNv"></span></span><input type="range" id="l_n" min="20" max="400" step="10" value="200"></label>
+      <label class="f"><span class="lh"><span>Loss</span><span class="v" id="lLv"></span></span><input type="range" id="l_loss" min="0" max="40" value="10"></label>
+      <label class="f"><span class="lh"><span>Duplication</span><span class="v" id="lUv"></span></span><input type="range" id="l_dup" min="0" max="40" value="0"></label>
+      <label class="f"><span class="lh"><span>Reordering</span><span class="v" id="lRv"></span></span><input type="range" id="l_reo" min="0" max="40" value="0"></label>
+      <label class="f"><span class="lh"><span>Delay</span><span class="v" id="lDv"></span></span><input type="range" id="l_delay" min="0" max="100" value="5"></label>
+      <label class="f"><span class="lh"><span>Jitter</span><span class="v" id="lJv"></span></span><input type="range" id="l_jit" min="0" max="100" value="2"></label>
+    </div>
+    <div class="row"><button class="primary" id="liveRun">Run test</button><button id="liveSweep">Run loss sweep</button><span class="muted" id="liveStatus"></span></div>
+  </div>
+  <div class="grid3" id="liveCards" style="margin-top:16px"></div>
+  <div class="grid2" style="margin-top:16px">
+    <div class="panel"><h3>Round-trip time per message</h3><p class="muted" style="font-size:13px;margin-bottom:8px">Gaps in the UDP line never came back. Kernel TCP queues messages behind a stalled segment, so its RTT climbs</p><div class="chartbox"><canvas id="chL1" role="img" aria-label="RTT per message"></canvas></div></div>
+    <div class="panel"><h3>Retransmission timer of the TCP-style sender</h3><p class="muted" style="font-size:13px;margin-bottom:8px">EstimatedRTT and TimeoutInterval measured on real datagrams</p><div class="chartbox"><canvas id="chL2" role="img" aria-label="Estimated RTT and RTO"></canvas></div></div>
+  </div>
+  <div class="panel" id="sweepBox" style="margin-top:16px" hidden>
+    <h3>Loss sweep on real sockets</h3>
+    <div class="grid2" style="margin-top:10px"><div class="chartbox"><canvas id="chL3" role="img" aria-label="Delivery versus loss"></canvas></div><div class="chartbox"><canvas id="chL4" role="img" aria-label="Duration versus loss"></canvas></div></div>
+  </div>
+</section>
+
+<!-- GUIDE -->
+<section id="v-guide" hidden>
+  <div class="grid2">
+    <div class="panel" style="display:flex;flex-direction:column;gap:12px">
+      <h2>What the assignment is asking</h2>
+      <p>Show, with evidence, how TCP and UDP behave when the network misbehaves. The Week 10 slides give you the theory (sequence numbers, ACKs, RTO, fast retransmit) and the tools (Python sockets, echo client and server).</p>
+      <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px">
+        <li>TCP echo and UDP echo programs built from the socket calls on slides 22 to 32</li>
+        <li>Fault injection: loss, ACK loss, delay, duplication, reordering</li>
+        <li>Metrics: delivery rate, order, duplicates, retransmissions, RTT, completion time</li>
+        <li>A written conclusion: when to choose which protocol</li>
+      </ul>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column;gap:12px">
+      <h2>Suggested report outline</h2>
+      <ol class="steps">
+        <li><div><b>Goal and setup.</b> Which tests, which parameters, loopback plus the lossy proxy.</div></li>
+        <li><div><b>Scenarios.</b> Screenshot each tab view: no loss, packet loss, ACK loss, premature timeout, fast retransmit.</div></li>
+        <li><div><b>Experiment.</b> Loss sweep charts and the copied CSV table.</div></li>
+        <li><div><b>Real sockets.</b> CLI output from your machine at 0%, 5%, 20% loss.</div></li>
+        <li><div><b>Conclusion.</b> UDP: lowest latency, no guarantees. TCP: guarantees, paid for in retransmissions and delay.</div></li>
+      </ol>
+    </div>
+  </div>
+  <div class="panel" style="margin-top:16px;display:flex;flex-direction:column;gap:14px">
+    <h2>The two echo programs from the slides</h2>
+    <div class="grid2">
+      <div><div class="codehead"><h3 class="tcp-c">TCP echo (SOCK_STREAM)</h3><button data-copy="codeTcp">Copy</button></div><pre class="code" id="codeTcp"></pre></div>
+      <div><div class="codehead"><h3 class="udp-c">UDP echo (SOCK_DGRAM)</h3><button data-copy="codeUdp">Copy</button></div><pre class="code" id="codeUdp"></pre></div>
+    </div>
+  </div>
+  <div class="grid2" style="margin-top:16px">
+    <div class="panel" style="display:flex;flex-direction:column;gap:10px">
+      <h2>Run the real lab on your computer</h2>
+      <pre class="code" id="codeRun"></pre>
+      <p class="muted" style="font-size:13px">Optional, Linux only: <span class="mono">sudo tc qdisc add dev lo root netem loss 10%</span> makes the kernel itself drop TCP segments, which the proxy cannot do. Remove it with <span class="mono">sudo tc qdisc del dev lo root</span>.</p>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column;gap:10px">
+      <h2>Host it online</h2>
+      <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px">
+        <li><b>Full lab (recommended):</b> push the project folder to GitHub, create a Render web service from the repo. The included Dockerfile and render.yaml are all it needs.</li>
+        <li><b>Static only:</b> the dashboard works without the server. Upload <span class="mono">static/index.html</span> to GitHub Pages or Netlify and the Live tab shows a captured sample run.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
